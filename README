@@ -1,0 +1,22 @@
+retain - a simple tool to find files matching a given set of timestamps
+
+Designed for culling excessive backup files.
+The timestamps are in the filenames, YYYY-MM-DD or YYYYMMDD, eg:
+    foo-2010-01-01.tar.gz
+    foo20100101.tar.gz
+
+Examples:
+  find files from the last 5 days, and then everything on the 1st of the
+  month:
+    $ retain "last 5 days, monthly" .
+
+  find backups for the last week, and then the last 6 months on the
+  12th of the month:
+    $ retain "7 days, 6 months on 12" /home/bob/backups/
+
+  find files on the both 1st and 15th of the month:
+    $ retain "monthly on 1, monthly on 15" .
+
+  keep only files from last 3 days, and also the 1st or 12th of the month
+    $ retain -n "last 3 days, monthly on 12, monthly on 1" /home/bob/backups/ | xargs rm
+
