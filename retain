@@ -8,17 +8,17 @@ The timestamps are in the filenames, YYYY-MM-DD or YYYYMMDD, eg:
 
 Examples:
   find files from the last 5 days, and then everything on the 1st of the month:
-    $ retain "last 5 days, monthly" .
+    $ retain "last 5 days, monthly" *
 
   find backups for the last week, and then the last 6 months on the
   12th of the month:
-    $ retain "7 days, 6 months on 12" /home/bob/backups/
+    $ retain "7 days, 6 months on 12" /home/bob/backups/*
 
   find files on the both 1st and 15th of the month:
-    $ retain "monthly on 1, monthly on 15" .
+    $ retain "monthly on 1, monthly on 15" *
 
   keep only files from last 3 days, and also the 1st or 12th of the month
-    $ retain -n "last 3 days, monthly on 12, monthly on 1" /home/bob/backups/ | xargs rm
+    $ retain -n "last 3 days, monthly on 12, monthly on 1" /home/bob/backups/* | xargs rm
 """
 
 pkgname = "retain"
@@ -61,7 +61,9 @@ class FiltKeepLastNMonths:
     def check( self,d, today=date.today() ):
         delta = today-d
         if self.nummonths is not None:
-            if delta.months > self.nummonths:
+            # TODO: work out proper month handling.
+            # currently use bankers definition 1 month = 30 days
+            if delta.days > self.nummonths*30:
                 return False
         if d.day != self.day:
             return False
@@ -98,18 +100,18 @@ def buildfilt( desc ):
     raise Exception( "couldn't parse '%s'" % (desc) )
 
  
-def perform( path ):
+def perform(filenames):
 
     datepat = re.compile( r'(?P<year>\d{4})-?(?P<month>\d{2})-?(?P<day>\d{2})' )
 
-    for filename in os.listdir( path ):
-        fullpath = os.path.join(path,filename)
-        if not os.path.isfile( fullpath ):
+    for fullpath in filenames:
+        filename = os.path.basename(fullpath)
+        if not os.path.isfile(fullpath):
             if opts.verbose:
                 print "%s: skip, not a plain file" % (filename,)
             continue
 
-        m = datepat.search( filename )
+        m = datepat.search(filename)
         if m is None:
             if opts.verbose:
                 print "%s: skip, no date" % (filename,)
@@ -125,45 +127,35 @@ def perform( path ):
 
         if opts.negate:
             if not matching:
-                print filename
+                print fullpath
         else:
             if matching:
-                print filename
+                print fullpath
 
 def main():
     global opts,filts
 
-    parser = optparse.OptionParser(usage='%%prog [options] <filters> <path>\n\n%s' % __doc__.strip(), version=pkgname+' '+__version__)
+    parser = optparse.OptionParser(usage='%%prog [options] <files...>\n\n%s' % __doc__.strip(), version=pkgname+' '+__version__)
     parser.add_option('-v', '--verbose', action='store_true', dest='verbose', help="Display extra debugging info" )
     parser.add_option('-n', '--negate', action='store_true', help="Negate sense - output timestamped files which _don't_ match filters" )
-
+    parser.add_option('-f', help='filter eg "last 2 days, monthly"', dest='filter', action='store', metavar='<FILTER>', default='')
     (opts, args) = parser.parse_args(sys.argv)
 
 
-    if len(args)<2:
-        parser.error("incorrect number of arguments")
-
-    filtdescs = [ desc.strip() for desc in args[1].split(',') ]
+    filtdescs = [desc.strip() for desc in opts.filter.split(',')]
+    filtdescs = [desc for desc in filtdescs if desc != '']
     for desc in filtdescs:
         try:
-            filts.append( buildfilt( desc ) )
+            filts.append(buildfilt(desc))
         except Exception, e:
-            parser.error( e )
-
-        dir = args[2]
-
-#    if len( args ) > 2:
-#        dir = args[2]
-#    else:
-#        dir = os.getcwd()
-
+            parser.error(e)
 
     if opts.verbose:
         print "filters:"
         for f in filts:
             print " ", f
 
-    perform( dir )
+    perform(args)
 
 
 if __name__ == '__main__':
